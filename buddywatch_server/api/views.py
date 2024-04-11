@@ -1,18 +1,18 @@
 from django.contrib.auth.models import User
 from rest_framework import generics
-from .serializers import UserSerializer
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 from django.apps import apps
 from PIL import Image
 import numpy as np
+from .serializers import UserSerializer
 
 
 class CreateUserView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [AllowAny]
+    queryset = User.objects.all()  # Check that user doesn't already exist
+    serializer_class = UserSerializer  # Validate creation data
+    permission_classes = [AllowAny]  # Allow anyone to create user
 
 
 @csrf_exempt  # Disabled for development! Must be enabled!
@@ -20,7 +20,6 @@ def predict(request):
     if request.method == 'POST' and request.FILES.get('image'):
         model = apps.get_app_config('api').model
         image_file = request.FILES['image']
-        print(image_file)
         image = Image.open(image_file)
         image = image.convert('RGB')
 
