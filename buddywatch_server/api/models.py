@@ -3,9 +3,11 @@ from django.contrib.auth.models import User
 
 
 class Video(models.Model):
-    name = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
     file = models.FileField(upload_to='videos/')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='videos')
 
     def __str__(self):
         return self.title

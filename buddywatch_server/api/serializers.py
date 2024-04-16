@@ -33,4 +33,5 @@ class UserSerializer(serializers.ModelSerializer):
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
-        fields = ['name', 'file', 'created_at']
+        fields = ['title', 'file', 'created_at', 'owner']
+        extra_kwargs = {'owner': {'read_only': True}}

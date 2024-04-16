@@ -2,11 +2,13 @@ from django.contrib.auth.models import User
 from rest_framework import generics
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.http import JsonResponse
 from django.apps import apps
 from PIL import Image
 import numpy as np
+
+from .models import Video
 from .serializers import UserSerializer
 from .serializers import VideoSerializer
 
@@ -17,21 +19,42 @@ class CreateUserView(generics.CreateAPIView):
     permission_classes = [AllowAny]  # Allow anyone to create user
 
 
-class VideoUploadView(generics.CreateAPIView):
-    parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [AllowAny]  # For development only
+class ListVideoView(generics.ListAPIView):
+    serializer_class = VideoSerializer
+    permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        video_serializer = VideoSerializer(data=request.data)
-        if video_serializer.is_valid():
-            video_serializer.save()
-            return JsonResponse(video_serializer.data, status=status.HTTP_201_CREATED)
+    def get_queryset(self):
+        user = self.request.user
+        # Show user only their own videos
+        return Video.objects.filter(owner=user)
+
+
+class UploadVideoView(generics.CreateAPIView):
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = VideoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        if serializer.is_valid():
+            serializer.save(owner=self.request.user)
+            return JsonResponse({"success": True, "video": serializer.data}, status=status.HTTP_201_CREATED)
         else:
-            return JsonResponse(video_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            print(serializer.errors)
+            return JsonResponse({"success": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteVideoView(generics.DestroyAPIView):
+    serializer_class = VideoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Let user delete only their only videos
+        return Video.objects.filter(owner=user)
 
 
 class PredictView(generics.CreateAPIView):
-    permission_classes = [AllowAny]  # For development only
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         if request.FILES.get('image'):
@@ -56,6 +79,7 @@ class PredictView(generics.CreateAPIView):
                 "confidence": float(y_pred[0][0][0])
             }
             print(prediction_result)
-            return JsonResponse({"prediction": prediction_result}, status=status.HTTP_200_OK)
+            return JsonResponse({"success": True, "prediction": prediction_result}, status=status.HTTP_200_OK)
 
-        return JsonResponse({"error": "Request must be POST with an image."}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({"success": False, "error": "Request must have an image"},
+                            status=status.HTTP_400_BAD_REQUEST)
