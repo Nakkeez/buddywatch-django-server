@@ -43,5 +43,5 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
-        fields = ['title', 'file', 'created_at', 'owner']
+        fields = ['id', 'title', 'file', 'thumbnail', 'created_at', 'owner']
         extra_kwargs = {'owner': {'read_only': True}}

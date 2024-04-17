@@ -6,11 +6,35 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.http import JsonResponse
 from django.apps import apps
+from django.core.files.base import ContentFile
+import io
+import os
+import cv2
 from PIL import Image
 import numpy as np
 
 from .models import Video
 from .serializers import UserSerializer, CustomTokenObtainPairSerializer, VideoSerializer
+
+
+def generate_and_save_thumbnail(video_name, instance):
+    """Capture the first frame from video with OpenCV and save the frame as thumbnail to Video instance"""
+    video_path = os.path.join(__file__, '..', '..', 'media', video_name)
+    cap = cv2.VideoCapture(video_path)
+    ret, frame = cap.read()
+
+    if ret:
+        # Convert the image to PNG format in memory
+        is_success, buffer = cv2.imencode(".png", frame)
+        if is_success:
+            # Convert to bytes and then to a Django ContentFile
+            io_buf = io.BytesIO(buffer)
+            thumbnail = ContentFile(io_buf.getvalue())
+            # Save thumbnail to the model's thumbnail field
+            instance.thumbnail.save(f"{instance.pk}_thumbnail.png", thumbnail, save=True)
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -40,7 +64,11 @@ class UploadVideoView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         if serializer.is_valid():
-            serializer.save(owner=self.request.user)
+            video = serializer.save(owner=self.request.user)
+
+            video_path = video.file.name
+            # Generate and save the thumbnail
+            generate_and_save_thumbnail(video_path, video)
             return JsonResponse({"success": True, "video": serializer.data}, status=status.HTTP_201_CREATED)
         else:
             print(serializer.errors)
