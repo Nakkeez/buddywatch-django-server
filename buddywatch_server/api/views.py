@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import generics
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
@@ -9,14 +10,17 @@ from PIL import Image
 import numpy as np
 
 from .models import Video
-from .serializers import UserSerializer
-from .serializers import VideoSerializer
+from .serializers import UserSerializer, CustomTokenObtainPairSerializer, VideoSerializer
 
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()  # Check that user doesn't already exist
     serializer_class = UserSerializer  # Validate creation data
     permission_classes = [AllowAny]  # Allow anyone to create user
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class ListVideoView(generics.ListAPIView):
