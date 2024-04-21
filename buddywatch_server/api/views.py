@@ -4,37 +4,14 @@ from rest_framework import generics
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.apps import apps
-from django.core.files.base import ContentFile
-import io
-import os
-import cv2
 from PIL import Image
 import numpy as np
 
 from .models import Video
 from .serializers import UserSerializer, CustomTokenObtainPairSerializer, VideoSerializer
-
-
-def generate_and_save_thumbnail(video_name, instance):
-    """Capture the first frame from video with OpenCV and save the frame as thumbnail to Video instance"""
-    video_path = os.path.join(__file__, '..', '..', 'media', video_name)
-    cap = cv2.VideoCapture(video_path)
-    ret, frame = cap.read()
-
-    if ret:
-        # Convert the image to PNG format in memory
-        is_success, buffer = cv2.imencode(".png", frame)
-        if is_success:
-            # Convert to bytes and then to a Django ContentFile
-            io_buf = io.BytesIO(buffer)
-            thumbnail = ContentFile(io_buf.getvalue())
-            # Save thumbnail to the model's thumbnail field
-            instance.thumbnail.save(f"{instance.pk}_thumbnail.png", thumbnail, save=True)
-
-    cap.release()
-    cv2.destroyAllWindows()
+from .utils import generate_and_save_thumbnail
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -83,6 +60,27 @@ class DeleteVideoView(generics.DestroyAPIView):
         user = self.request.user
         # Let user delete only their only videos
         return Video.objects.filter(owner=user)
+
+
+class DownloadVideoView(generics.RetrieveAPIView):
+    serializer_class = VideoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Let user download only their only videos
+        return Video.objects.filter(owner=user)
+
+    def get(self, request, *args, **kwargs):
+        video = self.get_object()
+        video_path = video.file.path
+        with open(video_path, 'rb') as video_file:
+            response = HttpResponse(video_file.read(), content_type='video/webm')
+            response['Content-Disposition'] = f'attachment; filename={video.file.name}'
+            # Let clients read filename from header
+            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+            print(response['Content-Disposition'])
+            return response
 
 
 class PredictView(generics.CreateAPIView):
