@@ -10,7 +10,6 @@ class ApiConfig(AppConfig):
     model = None
 
     def ready(self):
-
         file_path = os.path.join(settings.BASE_DIR, 'buddywatch_face.h5')
         print('Loading model...')
         ApiConfig.model = tf.keras.models.load_model(file_path)
