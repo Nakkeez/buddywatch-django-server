@@ -12,5 +12,6 @@ class ApiConfig(AppConfig):
     def ready(self):
         file_path = os.path.join(settings.BASE_DIR, 'buddywatch_face.h5')
         print('Loading model...')
+        # Load object detection model at start up and keep it in memory for fast access
         ApiConfig.model = tf.keras.models.load_model(file_path)
         print('Model loaded successfully')
