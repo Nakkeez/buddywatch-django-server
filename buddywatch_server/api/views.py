@@ -1,11 +1,12 @@
-from django.contrib.auth.models import User
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import generics
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.auth.models import User
 from django.http import JsonResponse, HttpResponse
 from django.apps import apps
+from django.core.files.storage import default_storage
 from PIL import Image
 import numpy as np
 
@@ -15,16 +16,38 @@ from .utils import generate_and_save_thumbnail
 
 
 class CreateUserView(generics.CreateAPIView):
-    queryset = User.objects.all()  # Check that user doesn't already exist
-    serializer_class = UserSerializer  # Validate creation data
-    permission_classes = [AllowAny]  # Allow anyone to create user
+    """
+    Create a new user and check the username is unique.
+
+    Returns:
+        JsonResponse: Success message if successful, error message if not.
+    """
+    # Check that user doesn't already exist
+    queryset = User.objects.all()
+    # Validate creation data
+    serializer_class = UserSerializer
+    # Allow anyone to create user
+    permission_classes = [AllowAny]
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Custom token obtain pair view that returns the username along
+    with the access and refresh tokens.
+
+    Returns:
+        JsonResponse: Access and refresh tokens along with the username.
+    """
     serializer_class = CustomTokenObtainPairSerializer
 
 
 class ListVideoView(generics.ListAPIView):
+    """
+    Lists all videos uploaded by the user.
+
+    Returns:
+        Video: List of videos uploaded by the user.
+    """
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated]
 
@@ -35,6 +58,14 @@ class ListVideoView(generics.ListAPIView):
 
 
 class UploadVideoView(generics.CreateAPIView):
+    """
+    Uploads a video file to the server.
+    Request must be multipart/form-data with the video file in the 'file' field
+    and video title in the 'title' field.
+
+    Returns:
+        JsonResponse: Success message and video data if successful, error message if not.
+    """
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated]
@@ -43,9 +74,9 @@ class UploadVideoView(generics.CreateAPIView):
         if serializer.is_valid():
             video = serializer.save(owner=self.request.user)
 
-            video_path = video.file.name
+            video_url = video.file.name
             # Generate and save the thumbnail
-            generate_and_save_thumbnail(video_path, video)
+            generate_and_save_thumbnail(video_url, video)
             return JsonResponse({"success": True, "video": serializer.data}, status=status.HTTP_201_CREATED)
         else:
             print(serializer.errors)
@@ -53,6 +84,12 @@ class UploadVideoView(generics.CreateAPIView):
 
 
 class DeleteVideoView(generics.DestroyAPIView):
+    """
+    Delete video file from the server by id.
+
+    Returns:
+        JsonResponse: Success message if successful, error message if not.
+    """
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated]
 
@@ -63,6 +100,13 @@ class DeleteVideoView(generics.DestroyAPIView):
 
 
 class DownloadVideoView(generics.RetrieveAPIView):
+    """
+    Download video file from the server by id.
+
+    Returns:
+        HttpResponse: Video file as a response if successful
+        JsonResponse: Error message if not.
+    """
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated]
 
@@ -73,26 +117,41 @@ class DownloadVideoView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         video = self.get_object()
-        video_path = video.file.path
-        with open(video_path, 'rb') as video_file:
-            response = HttpResponse(video_file.read(), content_type='video/webm')
-            response['Content-Disposition'] = f'attachment; filename={video.file.name}'
+
+        # If file exists, open the Azure Blob Storage file and return it as a response
+        if default_storage.exists(video.file.name):
+            file = default_storage.open(video.file.name, 'rb')
+            response = HttpResponse(file, content_type='video/webm', status=status.HTTP_200_OK)
+            # Add filename to the response headers
+            response['Content-Disposition'] = f"attachment; filename=\"{video.file.name.split('/')[-1]}\""
             # Let clients read filename from header
             response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-            print(response['Content-Disposition'])
+
             return response
+        else:
+            return JsonResponse({"success": False, "error": "File not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class PredictView(generics.CreateAPIView):
+    """
+    Predict the bounding box coordinates and confidence score of human face in an image.
+    Request must be multipart/form-data with the image file in the 'image' field.
+
+    Returns:
+        JsonResponse: Bounding box coordinates and confidence score if successful, error message if not.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         if request.FILES.get('image'):
+            # Get the model from the app registry
             model = apps.get_app_config('api').model
             image_file = request.FILES['image']
+            # Open the image file and convert to RGB format
             image = Image.open(image_file)
             image = image.convert('RGB')
 
+            # Resize the image to 120x120 for faster processing
             image = image.resize((120, 120))
 
             # Convert the image to a numpy array and normalize

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -17,11 +18,29 @@ import os
 
 load_dotenv()
 
+CLIENT_ID = os.environ['AZURE_CLIENT_ID']
+TENANT_ID = os.environ['AZURE_TENANT_ID']
+CLIENT_SECRET = os.environ['AZURE_CLIENT_SECRET']
+STORAGE_URL = os.environ['AZURE_STORAGE_URL']
+ACCOUNT_NAME = os.environ['AZURE_ACCOUNT_NAME']
+CONTAINER_NAME = os.environ['AZURE_CONTAINER_NAME']
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'storages.backends.azure_storage.AzureStorage',
+        "OPTIONS": {
+            "token_credential": DefaultAzureCredential(managed_identity_client_id=CLIENT_ID),
+            "account_name": ACCOUNT_NAME,
+            "azure_container": CONTAINER_NAME,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 SECRET_KEY = os.environ['SECRET_KEY']
 
@@ -96,11 +115,11 @@ WSGI_APPLICATION = 'buddywatch_server.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'buddywatch',
-        'USER': 'dbadmin',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['DB_USER'],
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ['DB_HOST'],
+        'PORT': os.environ['DB_PORT'],
     }
 }
 
@@ -142,9 +161,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
