@@ -71,12 +71,16 @@ class UploadVideoView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        if serializer.is_valid():
+        video_file = self.request.FILES.get('file')
+        if not video_file:
+            return JsonResponse({"success": False, "error": "No video file provided"},
+                                status=status.HTTP_400_BAD_REQUEST)
+        elif serializer.is_valid():
+            # Validate and save the video to Azure
             video = serializer.save(owner=self.request.user)
 
-            video_url = video.file.name
-            # Generate and save the thumbnail
-            generate_and_save_thumbnail(video_url, video)
+            # Generate and save the thumbnail to Azure
+            generate_and_save_thumbnail(video_file, video)
             return JsonResponse({"success": True, "video": serializer.data}, status=status.HTTP_201_CREATED)
         else:
             print(serializer.errors)
