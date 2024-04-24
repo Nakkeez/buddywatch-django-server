@@ -82,7 +82,7 @@ class ApiTest(TestCase):
         response = self.client.get('/api/videos/')
         self.assertEqual(response.status_code, 200)
 
-    def test_upload_video(self):
+    def test_upload_and_delete_video(self):
         """
         Test upload and delete video view by first uploading
         test video and deleting it afterward.
