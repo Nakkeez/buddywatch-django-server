@@ -135,3 +135,6 @@ venv.bak/
 
 # IntelliJ
 out/
+
+# Media data
+media/
