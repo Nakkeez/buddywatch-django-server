@@ -5,7 +5,7 @@
 | Document | Documentation |
 | Author:  |    Nakkeez    |
 | Version: |      1.0      |
-|  Date:   |   29.9.2024   |
+|  Date:   |   10.10.2024   |
 
 BuddyWatch is a deep learning enhanced surveillance system application for detecting humans from webcam feed. The software has separate user interface and server side applications working together to provide the functionality to the user.
 
